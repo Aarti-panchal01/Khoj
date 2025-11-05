@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, MapPin, Calendar, AlertCircle, Package } from 'lucide-react';
 import { getAllItems, CATEGORIES } from '../../lib/db';
@@ -7,49 +7,47 @@ import Badge from '../../components/ui/Badge';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
 import Button from '../../components/ui/Button';
+import ItemDetailModal from '../../components/ui/ItemDetailModal';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Home = () => {
   const [items, setItems] = useState([]);
-  const [filteredItems, setFilteredItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
-  const [filterStatus, setFilterStatus] = useState('active');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadItems();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [items, searchQuery, filterType, filterCategory, filterStatus]);
-
-  const loadItems = () => {
     const allItems = getAllItems();
     setItems(allItems);
-  };
+  }, []);
 
-  const applyFilters = () => {
+  // Memoized filtered items - recalculates whenever dependencies change
+  const filteredItems = useMemo(() => {
     let filtered = [...items];
 
-    // Apply filters
+    // Apply type filter
     if (filterType) {
       filtered = filtered.filter(item => item.type === filterType);
     }
 
+    // Apply category filter
     if (filterCategory) {
       filtered = filtered.filter(item => item.category === filterCategory);
     }
 
+    // Apply status filter
     if (filterStatus) {
       filtered = filtered.filter(item => item.status === filterStatus);
     }
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(item =>
         item.title.toLowerCase().includes(query) ||
         item.description.toLowerCase().includes(query) ||
@@ -58,12 +56,33 @@ const Home = () => {
       );
     }
 
-    setFilteredItems(filtered);
+    return filtered;
+  }, [items, searchQuery, filterType, filterCategory, filterStatus]);
+
+  const handleItemClick = (item) => {
+    setSelectedItem(item);
+    setIsModalOpen(true);
   };
 
-  const handleItemClick = (itemId) => {
-    navigate(`/item/${itemId}`);
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setSelectedItem(null), 200); // Clear after animation
   };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setFilterType('');
+    setFilterCategory('');
+    setFilterStatus('');
+  };
+
+  const hasActiveFilters = searchQuery || filterType || filterCategory || filterStatus;
+
+  // Format categories for Select component
+  const categoryOptions = CATEGORIES.map(cat => ({
+    value: cat,
+    label: cat
+  }));
 
   const stats = {
     total: items.length,
@@ -137,36 +156,55 @@ const Home = () => {
         transition={{ delay: 0.3 }}
       >
         <Card className="p-4 sm:p-5 md:p-6 bg-gradient-to-br from-white to-gray-50/50 border-2 border-gray-100">
-          <div className="flex items-center gap-2 mb-3 sm:mb-4">
-            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600" />
-            <h3 className="text-sm sm:text-base font-semibold text-gray-900">Search & Filter</h3>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600" />
+              <h3 className="text-sm sm:text-base font-semibold text-gray-900">Search & Filter</h3>
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearFilters}
+                className="text-xs sm:text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+              >
+                Clear All
+              </button>
+            )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <Input
-            placeholder="Search items..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            icon={Search}
-            className="sm:col-span-2"
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Input
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              icon={Search}
+              className="lg:col-span-2"
+            />
 
-          <Select
-            placeholder="All Types"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            options={[
-              { value: 'found', label: 'Found Items' },
-              { value: 'lost', label: 'Lost Items' },
-            ]}
-          />
+            <Select
+              placeholder="All Types"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              options={[
+                { value: 'found', label: 'Found Items' },
+                { value: 'lost', label: 'Lost Items' },
+              ]}
+            />
 
-          <Select
-            placeholder="All Categories"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            options={CATEGORIES}
-          />
+            <Select
+              placeholder="All Categories"
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              options={categoryOptions}
+            />
           </div>
+
+          {/* Show active filter count */}
+          {hasActiveFilters && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <p className="text-xs sm:text-sm text-gray-600">
+                Showing <span className="font-semibold text-primary-600">{filteredItems.length}</span> of <span className="font-semibold">{items.length}</span> items
+              </p>
+            </div>
+          )}
         </Card>
       </motion.div>
 
@@ -186,7 +224,7 @@ const Home = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05, duration: 0.3 }}
             >
-              <Card hover onClick={() => handleItemClick(item.id)} className="overflow-hidden group cursor-pointer border-2 border-transparent hover:border-primary-300">
+              <Card hover onClick={() => handleItemClick(item)} className="overflow-hidden group cursor-pointer border-2 border-transparent hover:border-primary-300">
                 {/* Image */}
                 <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
                   {item.images && item.images.length > 0 ? (
@@ -244,6 +282,17 @@ const Home = () => {
           ))}
         </div>
       )}
+
+      {/* Item Detail Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <ItemDetailModal
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+            item={selectedItem}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
