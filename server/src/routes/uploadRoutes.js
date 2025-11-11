@@ -9,31 +9,43 @@ const router = express.Router();
  * @desc    Upload multiple images to Cloudinary
  * @access  Private (requires authentication)
  */
-router.post('/images', authMiddleware, upload.array('images', 5), async (req, res) => {
-  try {
-    // Check if files were uploaded
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
+router.post('/images', authMiddleware, (req, res) => {
+  upload.array('images', 5)(req, res, (err) => {
+    if (err) {
+      console.error('Multer/Cloudinary upload error:', err);
+      return res.status(500).json({
         success: false,
-        message: 'No images provided',
+        message: err.message || 'Failed to upload images. Please check Cloudinary credentials.',
       });
     }
 
-    // Extract Cloudinary URLs from uploaded files
-    const imageUrls = req.files.map(file => file.path);
+    try {
+      // Check if files were uploaded
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No images provided',
+        });
+      }
 
-    res.status(200).json({
-      success: true,
-      message: `${imageUrls.length} image(s) uploaded successfully`,
-      images: imageUrls,
-    });
-  } catch (error) {
-    console.error('Image upload error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to upload images',
-    });
-  }
+      // Extract Cloudinary URLs from uploaded files
+      const imageUrls = req.files.map(file => file.path);
+
+      console.log(`Successfully uploaded ${imageUrls.length} images to Cloudinary`);
+
+      res.status(200).json({
+        success: true,
+        message: `${imageUrls.length} image(s) uploaded successfully`,
+        images: imageUrls,
+      });
+    } catch (error) {
+      console.error('Image upload error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to upload images',
+      });
+    }
+  });
 });
 
 /**
@@ -41,28 +53,40 @@ router.post('/images', authMiddleware, upload.array('images', 5), async (req, re
  * @desc    Upload single image to Cloudinary
  * @access  Private (requires authentication)
  */
-router.post('/image', authMiddleware, upload.single('image'), async (req, res) => {
-  try {
-    // Check if file was uploaded
-    if (!req.file) {
-      return res.status(400).json({
+router.post('/image', authMiddleware, (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      console.error('Multer/Cloudinary upload error:', err);
+      return res.status(500).json({
         success: false,
-        message: 'No image provided',
+        message: err.message || 'Failed to upload image. Please check Cloudinary credentials.',
       });
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Image uploaded successfully',
-      imageUrl: req.file.path,
-    });
-  } catch (error) {
-    console.error('Image upload error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to upload image',
-    });
-  }
+    try {
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No image provided',
+        });
+      }
+
+      console.log('Successfully uploaded image to Cloudinary:', req.file.path);
+
+      res.status(200).json({
+        success: true,
+        message: 'Image uploaded successfully',
+        imageUrl: req.file.path,
+      });
+    } catch (error) {
+      console.error('Image upload error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to upload image',
+      });
+    }
+  });
 });
 
 module.exports = router;

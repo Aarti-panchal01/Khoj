@@ -1,8 +1,11 @@
+const dotenv = require('dotenv');
+// Load environment variables FIRST before importing other modules
+dotenv.config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const dotenv = require('dotenv');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
@@ -13,8 +16,6 @@ const authRoutes = require('./routes/authRoutes');
 const itemRoutes = require('./routes/itemRoutes');
 const campusRoutes = require('./routes/campusRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
-
-dotenv.config();
 
 const app = express();
 
