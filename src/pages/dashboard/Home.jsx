@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, MapPin, Calendar, AlertCircle, Package } from 'lucide-react';
+import { Search, Filter, MapPin, CalendarDays, AlertCircle, Package } from 'lucide-react';
 import { CATEGORIES } from '../../lib/constants';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -398,7 +398,7 @@ const Home = () => {
                     </div>
 
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Calendar className="w-4 h-4" />
+                      <CalendarDays className="w-4 h-4" />
                       <span>{format(new Date(item.date), 'MMM dd, yyyy')}</span>
                     </div>
                   </div>
