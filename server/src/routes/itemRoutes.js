@@ -1,10 +1,10 @@
-import express from "express";
-import multer from "multer";
-import fs from "fs";
-import Item from "../models/Item.js";
-import { itemSchema } from "../utils/validators.js";
-import authMiddleware from "../middleware/authMiddleware.js";
-import cloudinary from "../utils/cloudinary.js";
+const express = require("express");
+const multer = require("multer");
+const fs = require("fs");
+const Item = require("../models/Item");
+const { itemSchema } = require("../utils/validators");
+const authMiddleware = require("../middleware/authMiddleware");
+const cloudinary = require("../utils/cloudinary");
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -131,4 +131,4 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
