@@ -22,16 +22,34 @@ const app = express();
 // Trust proxy - important for rate limiting behind reverse proxies (Nginx, Heroku, etc.)
 app.set('trust proxy', 1);
 
-// CORS configuration
+// CORS configuration - MUST come before other middleware
+const allowedOrigins = process.env.CLIENT_ORIGIN?.split(',').map(o => o.trim()) || ['*'];
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN?.split(',') || '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // 24 hours
   })
 );
 
-// Security headers with Helmet
-app.use(helmet());
+// Security headers with Helmet - comes after CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+}));
 
 // Compression middleware for response compression
 app.use(compression());
