@@ -52,7 +52,14 @@ export const AuthAPI = {
 
 export const ItemsAPI = {
   list: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
+    // Filter out undefined/null/empty values before building query string
+    const cleanParams = Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+    const query = new URLSearchParams(cleanParams).toString();
     return apiRequest(`/items${query ? `?${query}` : ''}`).then(items => items.map(mapItem));
   },
   mine: () => apiRequest('/items/mine').then(items => items.map(mapItem)),
