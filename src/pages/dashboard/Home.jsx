@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, MapPin, CalendarDays, AlertCircle, Package } from 'lucide-react';
+import { Search, Filter, MapPin, Calendar, AlertCircle, Package } from 'lucide-react';
 import { CATEGORIES } from '../../lib/constants';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
@@ -58,8 +58,16 @@ const Home = () => {
           category: filterCategory || undefined,
           status: filterStatus || undefined,
           campus: filterCampus || undefined,
-          search: searchQuery || undefined,
+          search: searchQuery.trim() || undefined,
         });
+
+        // Debug logging - check if images are in the response
+        const itemsWithImages = data.filter(item => item.images && item.images.length > 0);
+        if (itemsWithImages.length > 0) {
+          console.log('Items with images received:', itemsWithImages.length);
+          console.log('Sample item:', itemsWithImages[0]);
+        }
+
         setItems(data);
       } catch (err) {
         console.error('Failed to fetch items', err);
@@ -69,7 +77,14 @@ const Home = () => {
       }
     };
 
-    fetchItems();
+    // Only debounce when user is typing in search
+    // Otherwise fetch immediately (on mount, filter change, etc.)
+    if (searchQuery) {
+      const timeoutId = setTimeout(fetchItems, 300);
+      return () => clearTimeout(timeoutId);
+    } else {
+      fetchItems();
+    }
   }, [user?.college, filterType, filterCategory, filterStatus, filterCampus, searchQuery]);
 
   const categoryOptions = useMemo(
@@ -97,19 +112,8 @@ const Home = () => {
       .map(campus => ({ value: campus, label: campus }));
   }, [items, collegeEntry, user?.campus]);
 
-  const filteredItems = useMemo(() => {
-    let filtered = [...items];
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(item =>
-        item.title.toLowerCase().includes(query) ||
-        item.description.toLowerCase().includes(query) ||
-        item.location.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query)
-      );
-    }
-    return filtered;
-  }, [items, searchQuery]);
+  // Items are already filtered by the API, no need for client-side filtering
+  const filteredItems = items;
 
   const handleItemClick = (item) => {
     setSelectedItem(item);
@@ -358,8 +362,27 @@ const Home = () => {
                       src={item.images[0]}
                       alt={item.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      onError={(e) => {
+                        console.error('Image failed to load:', {
+                          url: item.images[0],
+                          itemId: item.id,
+                          itemTitle: item.title,
+                        });
+                        // Hide broken image and show placeholder instead
+                        e.target.style.display = 'none';
+                        const placeholder = e.target.parentElement.querySelector('.image-placeholder');
+                        if (placeholder) placeholder.style.display = 'flex';
+                      }}
                     />
-                  ) : (
+                  ) : null}
+                  {/* Placeholder for broken images */}
+                  {item.images && item.images.length > 0 && (
+                    <div className="image-placeholder w-full h-full flex items-center justify-center bg-white" style={{ display: 'none' }}>
+                      <Package className="w-16 h-16 text-gray-300 group-hover:text-primary-400 transition-colors" />
+                    </div>
+                  )}
+                  {/* Placeholder for items without images */}
+                  {(!item.images || item.images.length === 0) && (
                     <div className="w-full h-full flex items-center justify-center bg-white">
                       <Package className="w-16 h-16 text-gray-300 group-hover:text-primary-400 transition-colors" />
                     </div>
@@ -398,7 +421,7 @@ const Home = () => {
                     </div>
 
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <CalendarDays className="w-4 h-4" />
+                      <Calendar className="w-4 h-4" />
                       <span>{format(new Date(item.date), 'MMM dd, yyyy')}</span>
                     </div>
                   </div>

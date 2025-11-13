@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Mail, Phone, Building2, Package, Search, Award, Edit, Trash2, CalendarDays } from 'lucide-react';
+import { Mail, Phone, Building2, Package, Search, Award, Edit, Trash2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ItemsAPI } from '../../lib/apiClient';
@@ -305,7 +305,7 @@ const Profile = () => {
                     <p className="text-sm text-gray-600 line-clamp-2 mb-3">{item.description}</p>
 
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <CalendarDays className="w-4 h-4" />
+                      <Calendar className="w-4 h-4" />
                       <span>{format(new Date(item.createdAt), 'MMM dd, yyyy')}</span>
                       <span className="mx-1">•</span>
                       <span>{item.location}</span>

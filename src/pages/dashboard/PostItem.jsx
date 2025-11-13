@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Upload, MapPin, CalendarDays, AlertCircle } from 'lucide-react';
-import { ItemsAPI } from '../../lib/apiClient';
+import { Upload, MapPin, Calendar, AlertCircle } from 'lucide-react';
+import { ItemsAPI, UploadAPI } from '../../lib/apiClient';
 import { CATEGORIES } from '../../lib/constants';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
@@ -27,6 +27,7 @@ const PostItem = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const navigate = useNavigate();
 
   // Load item data if in edit mode
@@ -63,14 +64,40 @@ const PostItem = () => {
     setError('');
   };
 
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    // In a real app, upload to a server/cloud storage
-    // For now, use placeholder images
-    const imagePlaceholders = files.map((_, i) =>
-      `https://images.unsplash.com/photo-${Date.now() + i}?w=400`
-    );
-    setFormData({ ...formData, images: imagePlaceholders });
+  const handleImageUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Validate file count (max 5 images)
+    if (files.length > 5) {
+      setError('Maximum 5 images allowed');
+      e.target.value = ''; // Reset file input
+      return;
+    }
+
+    // Validate file sizes (max 10MB each)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    for (const file of files) {
+      if (file.size > maxSize) {
+        setError(`Image ${file.name} is too large. Maximum size is 10MB`);
+        e.target.value = ''; // Reset file input
+        return;
+      }
+    }
+
+    setUploadingImages(true);
+    setError('');
+
+    try {
+      const result = await UploadAPI.uploadImages(files);
+      setFormData({ ...formData, images: result.images });
+    } catch (err) {
+      console.error('Image upload error:', err);
+      setError(err.message || 'Failed to upload images. Please try again.');
+      e.target.value = ''; // Reset file input on error
+    } finally {
+      setUploadingImages(false);
+    }
   };
 
   const validateForm = () => {
@@ -245,7 +272,7 @@ const PostItem = () => {
               name="date"
               value={formData.date}
               onChange={handleChange}
-              icon={CalendarDays}
+              icon={Calendar}
               required
               max={new Date().toISOString().split('T')[0]}
             />
@@ -253,25 +280,60 @@ const PostItem = () => {
             {/* Image Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2 sm:mb-3">
-                Images (Optional)
+                Images (Optional - Max 5)
               </label>
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-primary-500 transition-colors">
-                <Upload className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" />
-                <label className="cursor-pointer">
-                  <span className="text-sm sm:text-base text-primary-600 hover:text-primary-700 font-medium">
-                    Click to upload
-                  </span>
-                  <span className="text-sm sm:text-base text-gray-600"> or drag and drop</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </label>
-                <p className="text-xs text-gray-500 mt-2">PNG, JPG up to 10MB</p>
+                {uploadingImages ? (
+                  <div className="py-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-sm text-gray-600">Uploading images...</p>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" />
+                    <label className="cursor-pointer">
+                      <span className="text-sm sm:text-base text-primary-600 hover:text-primary-700 font-medium">
+                        Click to upload
+                      </span>
+                      <span className="text-sm sm:text-base text-gray-600"> or drag and drop</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        disabled={uploadingImages}
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2">PNG, JPG up to 10MB each (Max 5 images)</p>
+                  </>
+                )}
               </div>
+
+              {/* Display uploaded images */}
+              {formData.images && formData.images.length > 0 && (
+                <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {formData.images.map((url, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={url}
+                        alt={`Upload ${index + 1}`}
+                        className="w-full h-20 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = formData.images.filter((_, i) => i !== index);
+                          setFormData({ ...formData, images: newImages });
+                        }}
+                        className="absolute -top-2 -right-2 bg-danger-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Urgent Checkbox */}

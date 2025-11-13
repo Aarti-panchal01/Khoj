@@ -52,7 +52,14 @@ export const AuthAPI = {
 
 export const ItemsAPI = {
   list: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
+    // Filter out undefined/null/empty values before building query string
+    const cleanParams = Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+    const query = new URLSearchParams(cleanParams).toString();
     return apiRequest(`/items${query ? `?${query}` : ''}`).then(items => items.map(mapItem));
   },
   mine: () => apiRequest('/items/mine').then(items => items.map(mapItem)),
@@ -64,4 +71,36 @@ export const ItemsAPI = {
 
 export const CampusAPI = {
   list: () => apiRequest('/campuses', { auth: false }),
+};
+
+export const UploadAPI = {
+  uploadImages: async (files) => {
+    const formData = new FormData();
+
+    // Append each file to FormData
+    Array.from(files).forEach(file => {
+      formData.append('images', file);
+    });
+
+    const headers = {};
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`;
+    }
+    // Don't set Content-Type - browser will set it with boundary for multipart/form-data
+
+    const response = await fetch(`${API_BASE_URL}/upload/images`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      const error = new Error(errorBody.message || 'Upload failed');
+      error.status = response.status;
+      throw error;
+    }
+
+    return response.json();
+  },
 };

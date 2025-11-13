@@ -1,8 +1,11 @@
+const dotenv = require('dotenv');
+// Load environment variables FIRST before importing other modules
+dotenv.config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const dotenv = require('dotenv');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
@@ -12,31 +15,48 @@ const seedColleges = require('./utils/seedColleges');
 const authRoutes = require('./routes/authRoutes');
 const itemRoutes = require('./routes/itemRoutes');
 const campusRoutes = require('./routes/campusRoutes');
-
-dotenv.config();
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 
 // Trust proxy - important for rate limiting behind reverse proxies (Nginx, Heroku, etc.)
 app.set('trust proxy', 1);
 
-// CORS configuration
+// CORS configuration - MUST come before other middleware
+const allowedOrigins = process.env.CLIENT_ORIGIN?.split(',').map(o => o.trim()) || ['*'];
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN?.split(',') || '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400, // 24 hours
   })
 );
 
-// Security headers with Helmet
-app.use(helmet());
+// Security headers with Helmet - comes after CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+}));
 
 // Compression middleware for response compression
 app.use(compression());
 
 // Body parser with size limits
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Data sanitization against NoSQL injection
 app.use(mongoSanitize());
@@ -64,6 +84,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/campuses', campusRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

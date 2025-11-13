@@ -53,7 +53,13 @@ router.post('/signup', async (req, res) => {
   } catch (error) {
     console.error('Signup error', error);
     if (error.name === 'ZodError') {
-      return res.status(400).json({ message: error.errors[0]?.message });
+      const firstError = error.errors[0];
+      const field = firstError.path.join('.');
+      return res.status(400).json({
+        message: `${field}: ${firstError.message}`,
+        field,
+        errors: error.errors
+      });
     }
     return res.status(500).json({ message: 'Failed to create account' });
   }
@@ -62,7 +68,7 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const payload = loginSchema.parse(req.body);
-    const user = await User.findOne({ email: payload.email });
+    const user = await User.findOne({ email: payload.email }).select('+passwordHash');
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -96,7 +102,13 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login error', error);
     if (error.name === 'ZodError') {
-      return res.status(400).json({ message: error.errors[0]?.message });
+      const firstError = error.errors[0];
+      const field = firstError.path.join('.');
+      return res.status(400).json({
+        message: `${field}: ${firstError.message}`,
+        field,
+        errors: error.errors
+      });
     }
     return res.status(500).json({ message: 'Failed to login' });
   }
